@@ -3,21 +3,19 @@ struct RFile {
     2: required string content;
 }
 
+/* Status: Defines the reply of the servers whether the file CAN be written to
+ * the disk or not. */ 
 enum Status {
     NO = 0
     YES = 1
 }
 
-enum Order {
-    ABORT = 0
-    COMMIT = 1
-}
-
 service FileStore {
+    void ping(), // Used to check if the server is online.
     Status writeFile(1: RFile rFile),
     RFile readFile(1: string filename),
-    void commit(1: Order order),
-    void abort(1: Order order)
+    void commit(),
+    void abort()
 }
 
 service Coordinator {
