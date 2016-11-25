@@ -19,3 +19,8 @@ service FileStore {
     void commit(1: Order order),
     void abort(1: Order order)
 }
+
+service Coordinator {
+    Status writeFile(1: RFile rFile),
+    RFile readFile(1: string filename),
+}
