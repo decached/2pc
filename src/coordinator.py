@@ -15,14 +15,15 @@ from thrift.server import TServer
 from thrift.transport import TSocket, TTransport
 
 from tpc import Coordinator
+from tpc import FileStore
 from tpc.ttypes import (Order, Status)
 import connection
 
 partCons = []
 
 
-def formConnection(participant):
-    return connection.CoordinatorCon(participant)
+def formConnection(host, port):
+    return connection.Connection(FileStore, host, port)
 
 
 class CoordinatorHandler():

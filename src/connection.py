@@ -17,19 +17,9 @@ from tpc import FileStore
 from tpc import Coordinator
 
 
-class FileStoreCon:
-    def __init__(self, branchId):
-        self.branchId = branchId
-        transport = TSocket.TSocket(branchId.ip, branchId.port)
+class Connection:
+    def __init__(self, class_, host, port):
+        transport = TSocket.TSocket(host, port)
         protocol = TBinaryProtocol.TBinaryProtocol(transport)
-        self.client = FileStore.Client(protocol)
-        transport.open()
-
-
-class CoordinatorCon:
-    def __init__(self, branchId):
-        self.branchId = branchId
-        transport = TSocket.TSocket(branchId.ip, branchId.port)
-        protocol = TBinaryProtocol.TBinaryProtocol(transport)
-        self.client = Coordinator.Client(protocol)
+        self.client = class_.Client(protocol)
         transport.open()
