@@ -14,11 +14,11 @@ service FileStore {
     void ping(), // Used to check if the server is online.
     Status writeFile(1: RFile rFile),
     RFile readFile(1: string filename),
-    void commit(),
-    void abort()
+    void commit(1: string filename),
+    void abort(1: string filename)
 }
 
 service Coordinator {
-    Status writeFile(1: RFile rFile),
+    void writeFile(1: RFile rFile),
     RFile readFile(1: string filename),
 }
