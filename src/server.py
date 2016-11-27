@@ -5,6 +5,7 @@ import glob
 import os
 import socket
 import sys
+import threading
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/lib/gen-py')
 sys.path.insert(0, glob.glob('/home/akash/clones/thrift/lib/py/build/lib.*')[1])
@@ -20,6 +21,9 @@ from thrift.server import TServer
 # FIXME: Remove FS from Command line
 fs = ""
 
+locks = {}
+mLock = threading.Lock()
+
 
 class FileStoreHandler():
     def __init__(self):
@@ -32,9 +36,21 @@ class FileStoreHandler():
 
     def writeFile(self, rFile):
         filePath = self.fsDir + rFile.filename + '.bak'
-        with open(filePath, 'w') as wF:
-            wF.write(rFile.content)
-            return Status.YES
+
+        lock = None
+        with mLock:
+            if filePath in locks:
+                lock = locks[filePath]
+            else:
+                lock = threading.Lock()
+                locks[filePath] = lock
+
+        if lock.locked():
+            return Status.NO
+        with lock:
+            with open(filePath, 'w') as wF:
+                wF.write(rFile.content)
+                return Status.YES
 
     def readFile(self, filename):
         filePath = self.fsDir + filename
@@ -65,7 +81,7 @@ if __name__ == '__main__':
         tsocket = TSocket.TServerSocket('0.0.0.0', args.port)
         transport = TTransport.TBufferedTransportFactory()
         protocol = TBinaryProtocol.TBinaryProtocolFactory()
-        server = TServer.TSimpleServer(processor, tsocket, transport, protocol)
+        server = TServer.TThreadedServer(processor, tsocket, transport, protocol)
 
         host = socket.gethostname()
         host += '.cs.binghamton.edu' if host.startswith('remote') else ''
