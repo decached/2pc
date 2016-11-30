@@ -16,6 +16,7 @@ from thrift.server import TServer
 from thrift.transport import TSocket, TTransport
 
 from tpc import Coordinator, FileStore
+from tpc.ttypes import Request
 import connection
 
 participants = {}
@@ -65,13 +66,18 @@ class CoordinatorHandler():
                 wal["requests"][newID]["status"][name] = False
 
             self._setLog(wal)
+            return int(newID)
 
     def writeFile(self, rFile):
         global participants
 
         # Log request to write `rFile`
-        self._logInit(rFile)
+        newID = self._logInit(rFile)
 
+        for pid, location in participants.items():
+            partCon = formConnection(*location)
+            req = Request(newID, rFile)
+            partCon.client.writeFile(req)
 
     def readFile(self, filename):
         raise NotImplementedError
