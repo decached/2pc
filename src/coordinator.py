@@ -6,6 +6,7 @@ import json
 import os
 import socket
 import sys
+import threading
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/lib/gen-py')
 sys.path.insert(0, glob.glob('/home/akash/clones/thrift/lib/py/build/lib.*')[1])
@@ -80,7 +81,10 @@ class CoordinatorHandler():
             partCon.client.writeFile(req)
 
     def readFile(self, filename):
-        raise NotImplementedError
+        global participants
+        participant = participants.values()[random.randrange(0, len(participants))]
+        con = formConnection(*participant)
+        return con.client.readFile(filename)
 
 
 if __name__ == '__main__':
