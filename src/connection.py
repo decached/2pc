@@ -13,13 +13,14 @@ sys.path.insert(0, glob.glob('/home/akash/clones/thrift/lib/py/build/lib.*')[0])
 
 from thrift.transport import TSocket
 from thrift.protocol import TBinaryProtocol
-from tpc import FileStore
-from tpc import Coordinator
 
 
 class Connection:
     def __init__(self, class_, host, port):
-        transport = TSocket.TSocket(host, port)
-        protocol = TBinaryProtocol.TBinaryProtocol(transport)
+        self.transport = TSocket.TSocket(host, port)
+        protocol = TBinaryProtocol.TBinaryProtocol(self.transport)
         self.client = class_.Client(protocol)
-        transport.open()
+        self.transport.open()
+
+    def __del__(self):
+        self.transport.close()
