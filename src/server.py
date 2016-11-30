@@ -10,19 +10,27 @@ import threading
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/lib/gen-py')
 sys.path.insert(0, glob.glob('/home/akash/clones/thrift/lib/py/build/lib.*')[1])
 
-from tpc import FileStore
-from tpc.ttypes import RFile, Status
-
 from thrift import Thrift
-from thrift.transport import TSocket, TTransport
 from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
+from thrift.transport import TSocket, TTransport
+
+from tpc import Coordinator, FileStore
+from tpc.ttypes import RFile, Status, Vote
+import connection
 
 # FIXME: Remove FS from Command line
 fs = ""
 
 locks = {}
 mLock = threading.Lock()
+
+coordinator = {"host": "localhost", "port": "9090"}
+myPID = "p1"
+
+
+def formConnection(host, port):
+    return connection.Connection(Coordinator, host, port)
 
 
 class FileStoreHandler():
@@ -34,8 +42,8 @@ class FileStoreHandler():
     def ping(self):
         print 'ping'
 
-    def writeFile(self, rFile):
-        filePath = self.fsDir + rFile.filename + '.bak'
+    def writeFile(self, req):
+        filePath = self.fsDir + req.rFile.filename + '.bak'
 
         lock = None
         with mLock:
@@ -46,15 +54,19 @@ class FileStoreHandler():
                 locks[filePath] = lock
 
         if lock.locked():
-            return Status.NO
+            con = formConnection(coordinator['host'], coordinator['port'])
+            voteNO = Vote(req.tID, myPID, Status.NO)
+            con.client.vote(voteNO)
+
         with lock:
             with open(filePath, 'w') as wF:
-                wF.write(rFile.content)
-                return Status.YES
+                wF.write(req.rFile.content)
+                con = formConnection(coordinator['host'], coordinator['port'])
+                voteYES = Vote(req.tID, myPID, Status.YES)
+                con.client.vote(voteYES)
 
     def readFile(self, filename):
         filePath = self.fsDir + filename
-
         with open(filePath, 'r') as oF:
             return RFile(filename=filename, content=oF.read())
 
