@@ -2,6 +2,7 @@
 
 import argparse
 import glob
+import json
 import os
 import socket
 import sys
@@ -14,12 +15,11 @@ from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
 from thrift.transport import TSocket, TTransport
 
-from tpc import Coordinator
-from tpc import FileStore
-from tpc.ttypes import (Order, Status)
+from tpc import Coordinator, FileStore
 import connection
 
-partCons = []
+participants = {}
+wLock = threading.Lock()
 
 
 def formConnection(host, port):
@@ -27,8 +27,51 @@ def formConnection(host, port):
 
 
 class CoordinatorHandler():
+    def __init__(self):
+        self.coorDir = os.getcwd() + '/coor/'
+        if not os.path.isdir(self.coorDir):
+            os.makedirs(self.coorDir)
+
+    def _writeLocalFile(self, rFile):
+        filePath = self.coorDir + rFile.filename
+        with open(filePath, 'w') as wF:
+            wF.write(rFile.content)
+
+    def _getLog(self):
+        """
+        WARN: Should only be called with wLock
+        """
+        with open('tlog.json', 'r') as rF:
+            return json.loads(rF.read())
+
+    def _setLog(self, wal):
+        """
+        WARN: Should only be called with wLock
+        """
+        with open('tlog.json', 'w') as wF:
+            wF.write(json.dumps(wal))
+
+    def _logInit(self, rFile):
+        wal = None
+        with wLock:
+            self._writeLocalFile(rFile)
+
+            wal = self._getLog()
+
+            newID = str(int(wal["lastID"]) + 1)
+            wal["lastID"] = newID
+            wal["requests"][newID] = {"name": rFile.filename, "status": {}}
+            for name in participants:
+                wal["requests"][newID]["status"][name] = False
+
+            self._setLog(wal)
+
     def writeFile(self, rFile):
-        raise NotImplementedError
+        global participants
+
+        # Log request to write `rFile`
+        self._logInit(rFile)
+
 
     def readFile(self, filename):
         raise NotImplementedError
@@ -46,10 +89,17 @@ if __name__ == '__main__':
         tsocket = TSocket.TServerSocket('0.0.0.0', args.port)
         transport = TTransport.TBufferedTransportFactory()
         protocol = TBinaryProtocol.TBinaryProtocolFactory()
-        server = TServer.TSimpleServer(processor, tsocket, transport, protocol)
+        server = TServer.TThreadedServer(processor, tsocket, transport, protocol)
 
-        # for participant in participants:
-        #     partCons.append(formConnection(participant))
+        if not os.path.exists('tlog.json'):
+            with open('tlog.json', 'w') as wF:
+                wal = {"lastID": "0", "requests": {}}
+                wF.write(json.dumps(wal))
+
+        with open(args.filename, 'r') as f:
+            for line in f.readlines():
+                pid, ip, port = line.split()
+                participants[pid] = (ip, port)
 
         host = socket.gethostname()
         host += '.cs.binghamton.edu' if host.startswith('remote') else ''
