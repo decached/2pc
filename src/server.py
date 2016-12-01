@@ -44,26 +44,21 @@ class FileStoreHandler():
 
     def writeFile(self, req):
         filePath = self.fsDir + req.rFile.filename + '.bak'
-
-        lock = None
         with mLock:
-            if filePath in locks:
-                lock = locks[filePath]
-            else:
-                lock = threading.Lock()
-                locks[filePath] = lock
+            if not req.rFile.filename in locks:
+                locks[req.rFile.filename] = threading.Lock()
 
-        if lock.locked():
+        if locks[req.rFile.filename].locked():
             con = formConnection(coordinator['host'], coordinator['port'])
             voteNO = Vote(req.tID, myPID, Status.NO)
             con.client.vote(voteNO)
 
-        with lock:
-            with open(filePath, 'w') as wF:
-                wF.write(req.rFile.content)
-                con = formConnection(coordinator['host'], coordinator['port'])
-                voteYES = Vote(req.tID, myPID, Status.YES)
-                con.client.vote(voteYES)
+        locks[req.rFile.filename].acquire()
+        with open(filePath, 'w') as wF:
+            wF.write(req.rFile.content)
+            con = formConnection(coordinator['host'], coordinator['port'])
+            voteYES = Vote(req.tID, myPID, Status.YES)
+            con.client.vote(voteYES)
 
     def readFile(self, filename):
         filePath = self.fsDir + filename
@@ -73,10 +68,12 @@ class FileStoreHandler():
     def commit(self, filename):
         filePath = self.fsDir + filename + '.bak'
         os.rename(filePath, self.fsDir + filename)
+        locks[filename].release()
 
     def abort(self, filename):
         filePath = self.fsDir + filename + '.bak'
         os.remove(filePath)
+        locks[filename].release()
 
 
 if __name__ == '__main__':
