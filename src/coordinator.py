@@ -4,6 +4,7 @@ import argparse
 import glob
 import json
 import os
+import random
 import socket
 import sys
 import threading
@@ -69,6 +70,9 @@ class CoordinatorHandler():
             self._setLog(wal)
             return int(newID)
 
+    def ping(self):
+        print 'ping()'
+
     def writeFile(self, rFile):
         global participants
 
@@ -85,6 +89,26 @@ class CoordinatorHandler():
         participant = participants.values()[random.randrange(0, len(participants))]
         con = formConnection(*participant)
         return con.client.readFile(filename)
+
+    def vote(self, v):
+        votes = None
+        with wLock:
+            wal = self._getLog()
+            wal["requests"][str(v.tID)]["status"][v.pID] = True
+            self._setLog(wal)
+
+            votes = wal["requests"][str(v.tID)]["status"].values()
+            filename = wal["requests"][str(v.tID)]["name"]
+            if not len(votes) == len(participants):
+                return
+
+        if all(votes):
+            for pid, location in participants.items():
+                partCon = formConnection(*location)
+                partCon.client.commit(filename)
+        else:
+            # FIXME: Send `abort` messages to participants.
+            pass
 
 
 if __name__ == '__main__':
