@@ -19,14 +19,11 @@ from tpc import Coordinator, FileStore
 from tpc.ttypes import RFile, Status, Vote
 import connection
 
-# FIXME: Remove FS from Command line
-fs = ""
-
 locks = {}
 mLock = threading.Lock()
 
 coordinator = {"host": "localhost", "port": "9090"}
-myPID = "p1"
+myPID = None
 
 
 def formConnection(host, port):
@@ -35,7 +32,7 @@ def formConnection(host, port):
 
 class FileStoreHandler():
     def __init__(self):
-        self.fsDir = os.getcwd() + fs
+        self.fsDir = os.getcwd() + "/" + myPID + "/"
         if not os.path.isdir(self.fsDir):
             os.makedirs(self.fsDir)
 
@@ -80,10 +77,10 @@ if __name__ == '__main__':
     try:
         parser = argparse.ArgumentParser(description='Durable File Service Participant.')
         parser.add_argument(dest='port', help='Port')
-        parser.add_argument(dest='fs', help='RemoveMe')
+        parser.add_argument(dest='pid', help='Participant ID')
         args = parser.parse_args()
 
-        fs = '/' + args.fs + '/'
+        myPID = args.pid
 
         handler = FileStoreHandler()
         processor = FileStore.Processor(handler)
