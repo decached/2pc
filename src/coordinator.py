@@ -42,14 +42,14 @@ class CoordinatorHandler():
 
     def _getLog(self):
         """
-        WARN: Should only be called with wLock
+        WARN: Should only be called `with wLock:`
         """
         with open('tlog.json', 'r') as rF:
             return json.loads(rF.read())
 
     def _setLog(self, wal):
         """
-        WARN: Should only be called with wLock
+        WARN: Should only be called `with wLock:`
         """
         with open('tlog.json', 'w') as wF:
             wF.write(json.dumps(wal))
@@ -58,30 +58,23 @@ class CoordinatorHandler():
         wal = None
         with wLock:
             self._writeLocalFile(rFile)
-
             wal = self._getLog()
-
-            newID = str(int(wal["lastID"]) + 1)
-            wal["lastID"] = newID
-            wal["requests"][newID] = {"name": rFile.filename, "status": {}}
-            for name in participants:
-                wal["requests"][newID]["status"][name] = False
-
+            newTID = str(int(wal["lastID"]) + 1)
+            wal["lastID"] = newTID
+            wal["requests"][newTID] = {"name": rFile.filename, "status": {}}
             self._setLog(wal)
-            return int(newID)
+            return int(newTID)
 
     def ping(self):
         print 'ping()'
 
     def writeFile(self, rFile):
         global participants
-
-        # Log request to write `rFile`
-        newID = self._logInit(rFile)
+        tID = self._logInit(rFile)
 
         for pid, location in participants.items():
             partCon = formConnection(*location)
-            req = Request(newID, rFile)
+            req = Request(tID, rFile)
             partCon.client.writeFile(req)
 
     def readFile(self, filename):
@@ -94,12 +87,12 @@ class CoordinatorHandler():
         votes = None
         with wLock:
             wal = self._getLog()
-            wal["requests"][str(v.tID)]["status"][v.pID] = True
+            wal["requests"][str(v.tID)]["status"][v.pID] = v.status
             self._setLog(wal)
 
             votes = wal["requests"][str(v.tID)]["status"].values()
             filename = wal["requests"][str(v.tID)]["name"]
-            if not len(votes) == len(participants):
+            if votes and not len(votes) == len(participants):
                 return
 
         if all(votes):
@@ -107,8 +100,9 @@ class CoordinatorHandler():
                 partCon = formConnection(*location)
                 partCon.client.commit(filename)
         else:
-            # FIXME: Send `abort` messages to participants.
-            pass
+            for pid, location in participants.items():
+                partCon = formConnection(*location)
+                partCon.client.abort(filename)
 
 
 if __name__ == '__main__':
