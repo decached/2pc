@@ -15,7 +15,7 @@ from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
 from thrift.transport import TSocket, TTransport
 
-from tpc import Coordinator, FileStore
+from tpc import Coordinator as CoordinatorRPC, FileStore as FileStoreRPC
 from tpc.ttypes import RFile, Status, Vote
 import connection
 
@@ -27,22 +27,19 @@ myPID = None
 
 
 def formConnection(host, port):
-    return connection.Connection(Coordinator, host, port)
+    return connection.Connection(CoordinatorRPC, host, port)
 
 
-class FileStoreHandler():
+class FileStore():
     def __init__(self):
         self.fsDir = os.getcwd() + "/" + myPID + "/"
         if not os.path.isdir(self.fsDir):
             os.makedirs(self.fsDir)
 
-    def ping(self):
-        print 'ping'
-
     def writeFile(self, req):
         filePath = self.fsDir + req.rFile.filename + '.bak'
         with mLock:
-            if not req.rFile.filename in locks:
+            if req.rFile.filename not in locks:
                 locks[req.rFile.filename] = threading.Lock()
 
         if locks[req.rFile.filename].locked():
@@ -73,6 +70,26 @@ class FileStoreHandler():
         locks[filename].release()
 
 
+class FileStoreHandler():
+    def __init__(self):
+        self.fs = FileStore()
+
+    def ping(self):
+        print 'ping'
+
+    def writeFile(self, req):
+        self.fs.writeFile(req)
+
+    def readFile(self, filename):
+        self.fs.readFile(filename)
+
+    def commit(self, filename):
+        self.fs.commit(filename)
+
+    def abort(self, filename):
+        self.fs.abort(filename)
+
+
 if __name__ == '__main__':
     try:
         parser = argparse.ArgumentParser(description='Durable File Service Participant.')
@@ -83,7 +100,7 @@ if __name__ == '__main__':
         myPID = args.pid
 
         handler = FileStoreHandler()
-        processor = FileStore.Processor(handler)
+        processor = FileStoreRPC.Processor(handler)
         tsocket = TSocket.TServerSocket('0.0.0.0', args.port)
         transport = TTransport.TBufferedTransportFactory()
         protocol = TBinaryProtocol.TBinaryProtocolFactory()

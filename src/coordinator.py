@@ -17,7 +17,7 @@ from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
 from thrift.transport import TSocket, TTransport
 
-from tpc import Coordinator, FileStore
+from tpc import Coordinator as CoordinatorRPC, FileStore as FileStoreRPC
 from tpc.ttypes import Request
 import connection
 
@@ -26,10 +26,10 @@ wLock = threading.Lock()
 
 
 def formConnection(host, port):
-    return connection.Connection(FileStore, host, port)
+    return connection.Connection(FileStoreRPC, host, port)
 
 
-class CoordinatorHandler():
+class Coordinator():
     def __init__(self):
         self.coorDir = os.getcwd() + '/coor/'
         if not os.path.isdir(self.coorDir):
@@ -64,9 +64,6 @@ class CoordinatorHandler():
             wal["requests"][newTID] = {"name": rFile.filename, "status": {}}
             self._setLog(wal)
             return int(newTID)
-
-    def ping(self):
-        print 'ping()'
 
     def writeFile(self, rFile):
         global participants
@@ -105,6 +102,22 @@ class CoordinatorHandler():
                 partCon.client.abort(filename)
 
 
+class CoordinatorHandler():
+    def __init__(self):
+        self.coor = Coordinator()
+
+    def ping(self):
+        print 'ping()'
+
+    def writeFile(self, rFile):
+        self.coor.writeFile(rFile)
+
+    def readFile(self, filename):
+        return self.coor.readFile(filename)
+
+    def vote(self, v):
+        self.coor.vote(v)
+
 if __name__ == '__main__':
     try:
         parser = argparse.ArgumentParser(description='Durable File Service Coordinator.')
@@ -113,7 +126,7 @@ if __name__ == '__main__':
         args = parser.parse_args()
 
         handler = CoordinatorHandler()
-        processor = Coordinator.Processor(handler)
+        processor = CoordinatorRPC.Processor(handler)
         tsocket = TSocket.TServerSocket('0.0.0.0', args.port)
         transport = TTransport.TBufferedTransportFactory()
         protocol = TBinaryProtocol.TBinaryProtocolFactory()
