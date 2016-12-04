@@ -36,12 +36,11 @@ def recover():
     fs = FileStore()
     wal = fs._getLog()
     for tID, request in wal["requests"].items():
-        if request["action"] == Action.DONE:
-            continue
-        if fs.getDecision(tID):
-            fs.commit(request["name"], str(tID), recover=True)
-        else:
-            fs.abort(request["name"], str(tID), recover=True)
+        if request["action"] == Action.PENDING and request["voted"] == Status.YES:
+            if fs.getDecision(tID):
+                fs.doCommit(str(tID), recover=True)
+            else:
+                fs.doAbort(str(tID), recover=True)
 
 
 class Action:
@@ -104,9 +103,12 @@ class FileStore():
     def canCommit(self, tID):
         with wLock:
             wal = self._getLog()
+            wal["requests"][str(tID)]["voted"] = Status.YES
+            self._setLog(wal)
             return wal["requests"][str(tID)]["status"]
 
     def doCommit(self, tID, recover=False):
+        # if myPID == "p2": os._exit(0)
         filename = None
         with wLock:
             wal = self._getLog()
@@ -174,7 +176,7 @@ if __name__ == '__main__':
                 wal = {"lastID": "0", "requests": {}}
                 wF.write(json.dumps(wal))
 
-        # recover()
+        recover()
 
         handler = FileStoreHandler()
         processor = FileStoreRPC.Processor(handler)
