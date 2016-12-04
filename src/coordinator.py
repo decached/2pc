@@ -8,6 +8,7 @@ import random
 import socket
 import sys
 import threading
+import time
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/lib/gen-py')
 sys.path.insert(0, glob.glob('/home/akash/clones/thrift/lib/py/build/lib.*')[1])
@@ -28,10 +29,12 @@ wLock = threading.Lock()
 def formConnection(host, port):
     return connection.Connection(FileStoreRPC, host, port)
 
+CASE = 2
 
-class LOG:
+class MODE:
     DEBUG = True
     INFO = True
+    TEST = True
 
 
 class Action:
@@ -46,23 +49,23 @@ def recover():
         tID = int(tID)
         filename = request["name"]
         if request["action"] == Action.PENDING:
-            if LOG.INFO: print '[T:%d] "%s" [Recover?]' % (tID, filename)
+            if MODE.INFO: print '[T:%d] "%s" [Recover?]' % (tID, filename)
             votes = request["votes"]
-            if votes and not len(votes) == len(participants):
+            if not len(votes) == len(participants):
                 for pid, location in participants.items():
                     partCon = formConnection(*location)
-                    votes[pid] = partCon.client.canCommit(tID)
+                    votes[pid] = partCon.client.canCommit(tID, recover=True)
 
             fs._logVotes(tID, votes)
 
             if all(votes.values()):
-                if LOG.INFO: print '[T:%d] "%s" [Commit?]: %r' % (tID, filename, bool(Status.YES))
+                if MODE.INFO: print '[T:%d] "%s" [Commit?]: %r' % (tID, filename, bool(Status.YES))
                 fs._logStatus(tID, Status.YES)
                 for pid, location in participants.items():
                     partCon = formConnection(*location)
                     partCon.client.doCommit(tID)
             else:
-                if LOG.INFO: print '[T:%d] "%s" [Commit?]: %r' % (tID, filename, bool(Status.NO))
+                if MODE.INFO: print '[T:%d] "%s" [Commit?]: %r' % (tID, filename, bool(Status.NO))
                 fs._logStatus(tID, Status.NO)
                 for pid, location in participants.items():
                     if votes[pid] == Status.YES:
@@ -103,8 +106,7 @@ class Coordinator():
             wal = self._getLog()
             newTID = str(int(wal["lastID"]) + 1)
             wal["lastID"] = newTID
-            wal["requests"] = {}  # FIXME: Remove This Line
-            wal["requests"][newTID] = {"name": rFile.filename, "action": Action.PENDING, "status": Status.NO}
+            wal["requests"][newTID] = {"name": rFile.filename, "action": Action.PENDING, "status": Status.NO, "votes": {}}
             self._setLog(wal)
             return int(newTID)
 
@@ -129,37 +131,47 @@ class Coordinator():
     def writeFile(self, rFile):
         global participants
         tID = self._logInit(rFile)
-        if LOG.INFO: print '[T:%d] "%s" [Write?]: Request' % (tID, rFile.filename)
+        if MODE.INFO: print '[T:%d] "%s" [Write?]: Request' % (tID, rFile.filename)
 
         for pid, location in participants.items():
             partCon = formConnection(*location)
             partCon.client.writeFile(tID, rFile)
 
+        time.sleep(7)
+
+        # if MODE.TEST and CASE == 2: time.sleep(10)
+        if MODE.TEST and CASE == 3: os._exit(0)
+
         votes = {}
         for pid, location in participants.items():
             partCon = formConnection(*location)
-            votes[pid] = partCon.client.canCommit(tID)
+            votes[pid] = partCon.client.canCommit(tID, recover=False)
+
+        if MODE.TEST and CASE == 4: del votes["p2"]
 
         self._logVotes(tID, votes)
-
         if votes and not len(votes) == len(participants):
             return
 
+        if MODE.TEST and (CASE == 4 or CASE == 5): os._exit(0)
+
+        status = None
         if all(votes.values()):
-            if LOG.INFO: print '[T:%d] "%s" [Commit?]: %r' % (tID, rFile.filename, bool(Status.YES))
-            self._logStatus(tID, Status.YES)
+            status = Status.YES
             for pid, location in participants.items():
                 partCon = formConnection(*location)
                 partCon.client.doCommit(tID)
         else:
-            if LOG.INFO: print '[T:%d] "%s" [Commit?]: %r' % (tID, rFile.filename, bool(Status.NO))
-            self._logStatus(tID, Status.NO)
+            status = Status.NO
             for pid, location in participants.items():
                 if votes[pid] == Status.YES:
                     partCon = formConnection(*location)
                     partCon.client.doAbort(tID)
 
         self._logAction(tID, Action.DONE)
+        if MODE.INFO: print '[T:%d] "%s" [Commit?]: %r' % (tID, rFile.filename, bool(status))
+        self._logStatus(tID, status)
+        return status
 
     def readFile(self, filename):
         global participants
@@ -186,7 +198,7 @@ class CoordinatorHandler():
         print 'ping()'
 
     def writeFile(self, rFile):
-        self.coor.writeFile(rFile)
+        return self.coor.writeFile(rFile)
 
     def readFile(self, filename):
         return self.coor.readFile(filename)

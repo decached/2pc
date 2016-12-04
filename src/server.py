@@ -7,6 +7,7 @@ import os
 import socket
 import sys
 import threading
+import time
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/lib/gen-py')
 sys.path.insert(0, glob.glob('/home/akash/clones/thrift/lib/py/build/lib.*')[1])
@@ -31,6 +32,18 @@ myPID = None
 def formConnection(host, port):
     return connection.Connection(CoordinatorRPC, host, port)
 
+CASE = 2
+
+class MODE:
+    DEBUG = True
+    INFO = True
+    TEST = True
+
+
+class Action:
+    PENDING = 0
+    DONE = 1
+
 
 def recover():
     fs = FileStore()
@@ -38,21 +51,11 @@ def recover():
     for tID, request in wal["requests"].items():
         if request["action"] == Action.PENDING and request["voted"] == Status.YES:
             if fs.getDecision(tID):
-                if LOG.INFO: print '[T:%d] [Get-Decision?]: Commit' % (tID)
+                if MODE.INFO: print '[T:%d] [Get-Decision?]: Commit' % (tID)
                 fs.doCommit(str(tID), recover=True)
             else:
-                if LOG.INFO: print '[T:%d] [Get-Decision?]: Abort' % (tID)
+                if MODE.INFO: print '[T:%d] [Get-Decision?]: Abort' % (tID)
                 fs.doAbort(str(tID), recover=True)
-
-
-class LOG:
-    DEBUG = True
-    INFO = True
-
-
-class Action:
-    PENDING = 0
-    DONE = 1
 
 
 class FileStore():
@@ -77,12 +80,26 @@ class FileStore():
     def _logInit(self, filename, tID):
         with wLock:
             wal = self._getLog()
-            wal["requests"] = {}
-            wal["requests"][tID] = {"name": filename, "status": Status.NO, "action": Action.PENDING}
+            wal["requests"][str(tID)] = {"name": filename, "status": Status.NO, "action": Action.PENDING, "voted": Status.NO}
             self._setLog(wal)
 
+    def _timeout(self, tID, filename):
+        time.sleep(10)
+        action = None
+        # voted = None
+        with wLock:
+            wal = self._getLog()
+            action = wal["requests"][str(tID)]["action"]
+            voted = wal["requests"][str(tID)]["voted"]
+            if voted:
+                return
+        if not action:
+            if MODE.INFO: print '[T:%d] "%s" [Write?]: Timeout' % (tID, filename)
+            self.doAbort(tID)
+
+
     def writeFile(self, tID, rFile):
-        if LOG.INFO: print '[T:%d] "%s" [Write?]: Request' % (tID, rFile.filename)
+        if MODE.INFO: print '[T:%d] "%s" [Write?]: Request' % (tID, rFile.filename)
 
         self._logInit(rFile.filename, tID)
         filePath = self.fsDir + rFile.filename + '.bak'
@@ -91,37 +108,46 @@ class FileStore():
                 locks[rFile.filename] = threading.Lock()
 
         if locks[rFile.filename].locked():
-            if LOG.INFO: print '[T:%d] "%s" [Write?]: Abort (previous transaction running)' % (tID, rFile.filename)
+            if MODE.INFO: print '[T:%d] "%s" [Write?]: Abort (previous transaction running)' % (tID, rFile.filename)
+            with wLock:
+                wal = self._getLog()
+                wal["requests"][str(tID)]["status"] = Status.NO
+                wal["requests"][str(tID)]["action"] = Status.YES
+                self._setLog(wal)
             return
 
         locks[rFile.filename].acquire()
         with open(filePath, 'w') as wF:
-            wF.write(rFile.content)
             with wLock:
                 wal = self._getLog()
                 wal["requests"][str(tID)]["status"] = Status.YES
                 self._setLog(wal)
+            if MODE.TEST and CASE == 2: time.sleep(5)
+            wF.write(rFile.content)
 
-        if LOG.INFO: print '[T:%d] "%s" [Write?]: Ready' % (tID, rFile.filename)
-        # if myPID == "p2":
-        #     os._exit(0)
+        if MODE.INFO: print '[T:%d] "%s" [Write?]: Ready' % (tID, rFile.filename)
+        threading.Thread(target=self._timeout, args=(tID, rFile.filename, )).start()
 
     def readFile(self, filename):
         filePath = self.fsDir + filename
         with open(filePath, 'r') as oF:
             return RFile(filename=filename, content=oF.read())
 
-    def canCommit(self, tID):
+    def canCommit(self, tID, recover=False):
         filename = None
         with wLock:
             wal = self._getLog()
-            wal["requests"][str(tID)]["voted"] = Status.YES
             filename = wal["requests"][str(tID)]["name"]
-            self._setLog(wal)
             status = wal["requests"][str(tID)]["status"]
 
-        if LOG.INFO: print '[T:%d] "%s" [Can-Commit?]: %r' % (tID, filename, bool(status))
-        if status == Status.NO: self.doAbort(tID)
+            if MODE.INFO: print '[T:%d] "%s" [Can-Commit?]: %r' % (tID, filename, bool(status))
+            if wal["requests"][str(tID)]["action"] == Action.DONE:
+                return Status.NO
+
+            wal["requests"][str(tID)]["voted"] = Status.YES
+            self._setLog(wal)
+
+        if status == Status.NO: self.doAbort(tID, recover)
         return status
 
     def doCommit(self, tID, recover=False):
@@ -135,25 +161,27 @@ class FileStore():
 
         filePath = self.fsDir + filename + '.bak'
         os.rename(filePath, self.fsDir + filename)
-        if LOG.INFO: print '[T:%d] "%s" [Commit?]: Done' % (tID, filename)
         if not recover: locks[filename].release()
+        if MODE.INFO: print '[T:%d] "%s" [Write?]: Commit' % (tID, filename)
 
     def doAbort(self, tID, recover=False):
         filename = None
+
         with wLock:
             wal = self._getLog()
             wal["requests"][str(tID)]["action"] = Action.DONE
+            wal["requests"][str(tID)]["status"] = Status.NO
             filename = wal["requests"][str(tID)]["name"]
             self._setLog(wal)
 
         filePath = self.fsDir + filename + '.bak'
         os.remove(filePath)
-        if LOG.INFO: print '[T:%d] "%s" [Abort?]: Done' % (tID, filename)
         if not recover: locks[filename].release()
+        if MODE.INFO: print '[T:%d] "%s" [Write?]: Abort' % (tID, filename)
 
     def getDecision(self, tID):
         con = formConnection(coordinator['host'], coordinator['port'])
-        if LOG.INFO: print '[T:%d] [Get-Decision?]: Request' % (tID)
+        if MODE.INFO: print '[T:%d] [Get-Decision?]: Request' % (tID)
         return con.client.getDecision(int(tID))
 
 
@@ -170,8 +198,8 @@ class FileStoreHandler():
     def readFile(self, filename):
         self.fs.readFile(filename)
 
-    def canCommit(self, tID):
-        return self.fs.canCommit(tID)
+    def canCommit(self, tID, recover):
+        return self.fs.canCommit(tID, recover)
 
     def doCommit(self, tID):
         self.fs.doCommit(tID)
