@@ -70,6 +70,24 @@ class Coordinator():
             self._setLog(wal)
             return int(newTID)
 
+    def _logStatus(self, tID, status):
+        with wLock:
+            wal = self._getLog()
+            wal["requests"][str(tID)]["status"] = status
+            self._setLog(wal)
+
+    def _logAction(self, tID, action):
+        with wLock:
+            wal = self._getLog()
+            wal["requests"][str(tID)]["action"] = action
+            self._setLog(wal)
+
+    def _logVotes(self, tID, votes):
+        with wLock:
+            wal = self._getLog()
+            wal["requests"][str(tID)]["votes"] = votes
+            self._setLog(wal)
+
     def writeFile(self, rFile):
         global participants
         tID = self._logInit(rFile)
@@ -78,23 +96,26 @@ class Coordinator():
             partCon = formConnection(*location)
             partCon.client.writeFile(tID, rFile)
 
-        votes = []
-
+        votes = {}
         for pid, location in participants.items():
             partCon = formConnection(*location)
-            votes.append(partCon.client.canCommit(tID))
+            votes[pid] = partCon.client.canCommit(tID)
+        self._logVotes(tID, votes)
 
         if votes and not len(votes) == len(participants):
             return
-
-        if all(votes):
+        if all(votes.values()):
+            self._logStatus(tID, Status.YES)
             for pid, location in participants.items():
                 partCon = formConnection(*location)
                 partCon.client.doCommit(tID)
         else:
+            self._logStatus(tID, Status.NO)
             for pid, location in participants.items():
                 partCon = formConnection(*location)
                 partCon.client.doAbort(tID)
+
+        self._logAction(tID, Action.DONE)
 
     def readFile(self, filename):
         global participants
@@ -106,12 +127,11 @@ class Coordinator():
         votes = []
         with wLock:
             wal = self._getLog()
-            votes = wal["requests"][str(tID)]["status"].values()
+            votes = wal["requests"][str(tID)]["votes"].values()
+            status = wal["requests"][str(tID)]["status"]
             if votes and not len(votes) == len(participants):
                 return Status.NO
-
-            if all(votes): return Status.YES
-            else: return Status.NO
+            return status
 
 
 class CoordinatorHandler():

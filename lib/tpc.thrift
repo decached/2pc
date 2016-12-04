@@ -15,7 +15,7 @@ enum Status {
 
 service FileStore {
     void ping(), // Used to check if the server is online.
-    void writeFile(1: TransactionID tID, 2: RFile rFile),
+    oneway void writeFile(1: TransactionID tID, 2: RFile rFile),
     RFile readFile(1: string filename),
     Status canCommit(1: TransactionID tID),
     oneway void doCommit(1: TransactionID tID),
