@@ -112,8 +112,9 @@ class Coordinator():
         else:
             self._logStatus(tID, Status.NO)
             for pid, location in participants.items():
-                partCon = formConnection(*location)
-                partCon.client.doAbort(tID)
+                if votes[pid] == Status.YES:
+                    partCon = formConnection(*location)
+                    partCon.client.doAbort(tID)
 
         self._logAction(tID, Action.DONE)
 
