@@ -105,7 +105,9 @@ class FileStore():
             wal = self._getLog()
             wal["requests"][str(tID)]["voted"] = Status.YES
             self._setLog(wal)
-            return wal["requests"][str(tID)]["status"]
+            status = wal["requests"][str(tID)]["status"]
+        if status == Status.NO: self.doAbort(tID)
+        return status
 
     def doCommit(self, tID, recover=False):
         # if myPID == "p2": os._exit(0)
@@ -115,6 +117,7 @@ class FileStore():
             wal["requests"][str(tID)]["action"] = Action.DONE
             filename = wal["requests"][str(tID)]["name"]
             self._setLog(wal)
+
         filePath = self.fsDir + filename + '.bak'
         os.rename(filePath, self.fsDir + filename)
         if not recover: locks[filename].release()
@@ -126,6 +129,7 @@ class FileStore():
             wal["requests"][str(tID)]["action"] = Action.DONE
             filename = wal["requests"][str(tID)]["name"]
             self._setLog(wal)
+
         filePath = self.fsDir + filename + '.bak'
         os.remove(filePath)
         if not recover: locks[filename].release()
