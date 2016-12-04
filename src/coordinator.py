@@ -18,7 +18,7 @@ from thrift.server import TServer
 from thrift.transport import TSocket, TTransport
 
 from tpc import Coordinator as CoordinatorRPC, FileStore as FileStoreRPC
-from tpc.ttypes import Request
+from tpc.ttypes import Status
 import connection
 
 participants = {}
@@ -29,11 +29,15 @@ def formConnection(host, port):
     return connection.Connection(FileStoreRPC, host, port)
 
 
+class Action:
+    PENDING = 0
+    DONE = 1
+
+
 class Coordinator():
     def __init__(self):
         self.coorDir = os.getcwd() + '/coor/'
-        if not os.path.isdir(self.coorDir):
-            os.makedirs(self.coorDir)
+        self.logPath = self.coorDir + 'tlog.json'
 
     def _writeLocalFile(self, rFile):
         filePath = self.coorDir + rFile.filename
@@ -44,14 +48,14 @@ class Coordinator():
         """
         WARN: Should only be called `with wLock:`
         """
-        with open('tlog.json', 'r') as rF:
+        with open(self.logPath, 'r') as rF:
             return json.loads(rF.read())
 
     def _setLog(self, wal):
         """
         WARN: Should only be called `with wLock:`
         """
-        with open('tlog.json', 'w') as wF:
+        with open(self.logPath, 'w') as wF:
             wF.write(json.dumps(wal))
 
     def _logInit(self, rFile):
@@ -61,7 +65,8 @@ class Coordinator():
             wal = self._getLog()
             newTID = str(int(wal["lastID"]) + 1)
             wal["lastID"] = newTID
-            wal["requests"][newTID] = {"name": rFile.filename, "status": {}}
+            wal["requests"] = {}  # FIXME: Remove This Line
+            wal["requests"][newTID] = {"name": rFile.filename, "action": Action.PENDING, "status": Status.NO}
             self._setLog(wal)
             return int(newTID)
 
@@ -71,8 +76,25 @@ class Coordinator():
 
         for pid, location in participants.items():
             partCon = formConnection(*location)
-            req = Request(tID, rFile)
-            partCon.client.writeFile(req)
+            partCon.client.writeFile(tID, rFile)
+
+        votes = []
+
+        for pid, location in participants.items():
+            partCon = formConnection(*location)
+            votes.append(partCon.client.canCommit(tID))
+
+        if votes and not len(votes) == len(participants):
+            return
+
+        if all(votes):
+            for pid, location in participants.items():
+                partCon = formConnection(*location)
+                partCon.client.doCommit(tID)
+        else:
+            for pid, location in participants.items():
+                partCon = formConnection(*location)
+                partCon.client.doAbort(tID)
 
     def readFile(self, filename):
         global participants
@@ -80,26 +102,16 @@ class Coordinator():
         con = formConnection(*participant)
         return con.client.readFile(filename)
 
-    def vote(self, v):
-        votes = None
+    def getDecision(self, tID):
+        votes = []
         with wLock:
             wal = self._getLog()
-            wal["requests"][str(v.tID)]["status"][v.pID] = v.status
-            self._setLog(wal)
-
-            votes = wal["requests"][str(v.tID)]["status"].values()
-            filename = wal["requests"][str(v.tID)]["name"]
+            votes = wal["requests"][str(tID)]["status"].values()
             if votes and not len(votes) == len(participants):
-                return
+                return Status.NO
 
-        if all(votes):
-            for pid, location in participants.items():
-                partCon = formConnection(*location)
-                partCon.client.commit(filename)
-        else:
-            for pid, location in participants.items():
-                partCon = formConnection(*location)
-                partCon.client.abort(filename)
+            if all(votes): return Status.YES
+            else: return Status.NO
 
 
 class CoordinatorHandler():
@@ -115,8 +127,9 @@ class CoordinatorHandler():
     def readFile(self, filename):
         return self.coor.readFile(filename)
 
-    def vote(self, v):
-        self.coor.vote(v)
+    def getDecision(self, tID):
+        return self.coor.getDecision(tID)
+
 
 if __name__ == '__main__':
     try:
@@ -132,8 +145,13 @@ if __name__ == '__main__':
         protocol = TBinaryProtocol.TBinaryProtocolFactory()
         server = TServer.TThreadedServer(processor, tsocket, transport, protocol)
 
-        if not os.path.exists('tlog.json'):
-            with open('tlog.json', 'w') as wF:
+        coorDir = os.getcwd() + '/coor/'
+        if not os.path.isdir(coorDir):
+            os.makedirs(coorDir)
+
+        logPath = coorDir + 'tlog.json'
+        if not os.path.exists(logPath):
+            with open(logPath, 'w') as wF:
                 wal = {"lastID": "0", "requests": {}}
                 wF.write(json.dumps(wal))
 
