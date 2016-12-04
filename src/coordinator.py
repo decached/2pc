@@ -29,6 +29,11 @@ def formConnection(host, port):
     return connection.Connection(FileStoreRPC, host, port)
 
 
+class LOG:
+    DEBUG = True
+    INFO = True
+
+
 class Action:
     PENDING = 0
     DONE = 1
@@ -39,7 +44,9 @@ def recover():
     wal = fs._getLog()
     for tID, request in wal["requests"].items():
         tID = int(tID)
+        filename = request["name"]
         if request["action"] == Action.PENDING:
+            if LOG.INFO: print '[T:%d] "%s" [Recover?]' % (tID, filename)
             votes = request["votes"]
             if votes and not len(votes) == len(participants):
                 for pid, location in participants.items():
@@ -49,11 +56,13 @@ def recover():
             fs._logVotes(tID, votes)
 
             if all(votes.values()):
+                if LOG.INFO: print '[T:%d] "%s" [Commit?]: %r' % (tID, filename, bool(Status.YES))
                 fs._logStatus(tID, Status.YES)
                 for pid, location in participants.items():
                     partCon = formConnection(*location)
                     partCon.client.doCommit(tID)
             else:
+                if LOG.INFO: print '[T:%d] "%s" [Commit?]: %r' % (tID, filename, bool(Status.NO))
                 fs._logStatus(tID, Status.NO)
                 for pid, location in participants.items():
                     if votes[pid] == Status.YES:
@@ -120,6 +129,7 @@ class Coordinator():
     def writeFile(self, rFile):
         global participants
         tID = self._logInit(rFile)
+        if LOG.INFO: print '[T:%d] "%s" [Write?]: Request' % (tID, rFile.filename)
 
         for pid, location in participants.items():
             partCon = formConnection(*location)
@@ -136,11 +146,13 @@ class Coordinator():
             return
 
         if all(votes.values()):
+            if LOG.INFO: print '[T:%d] "%s" [Commit?]: %r' % (tID, rFile.filename, bool(Status.YES))
             self._logStatus(tID, Status.YES)
             for pid, location in participants.items():
                 partCon = formConnection(*location)
                 partCon.client.doCommit(tID)
         else:
+            if LOG.INFO: print '[T:%d] "%s" [Commit?]: %r' % (tID, rFile.filename, bool(Status.NO))
             self._logStatus(tID, Status.NO)
             for pid, location in participants.items():
                 if votes[pid] == Status.YES:

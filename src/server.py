@@ -38,9 +38,16 @@ def recover():
     for tID, request in wal["requests"].items():
         if request["action"] == Action.PENDING and request["voted"] == Status.YES:
             if fs.getDecision(tID):
+                if LOG.INFO: print '[T:%d] [Get-Decision?]: Commit' % (tID)
                 fs.doCommit(str(tID), recover=True)
             else:
+                if LOG.INFO: print '[T:%d] [Get-Decision?]: Abort' % (tID)
                 fs.doAbort(str(tID), recover=True)
+
+
+class LOG:
+    DEBUG = True
+    INFO = True
 
 
 class Action:
@@ -75,6 +82,8 @@ class FileStore():
             self._setLog(wal)
 
     def writeFile(self, tID, rFile):
+        if LOG.INFO: print '[T:%d] "%s" [Write?]: Request' % (tID, rFile.filename)
+
         self._logInit(rFile.filename, tID)
         filePath = self.fsDir + rFile.filename + '.bak'
         with mLock:
@@ -82,6 +91,7 @@ class FileStore():
                 locks[rFile.filename] = threading.Lock()
 
         if locks[rFile.filename].locked():
+            if LOG.INFO: print '[T:%d] "%s" [Write?]: Abort (previous transaction running)' % (tID, rFile.filename)
             return
 
         locks[rFile.filename].acquire()
@@ -92,6 +102,7 @@ class FileStore():
                 wal["requests"][str(tID)]["status"] = Status.YES
                 self._setLog(wal)
 
+        if LOG.INFO: print '[T:%d] "%s" [Write?]: Ready' % (tID, rFile.filename)
         # if myPID == "p2":
         #     os._exit(0)
 
@@ -101,11 +112,15 @@ class FileStore():
             return RFile(filename=filename, content=oF.read())
 
     def canCommit(self, tID):
+        filename = None
         with wLock:
             wal = self._getLog()
             wal["requests"][str(tID)]["voted"] = Status.YES
+            filename = wal["requests"][str(tID)]["name"]
             self._setLog(wal)
             status = wal["requests"][str(tID)]["status"]
+
+        if LOG.INFO: print '[T:%d] "%s" [Can-Commit?]: %r' % (tID, filename, bool(status))
         if status == Status.NO: self.doAbort(tID)
         return status
 
@@ -120,6 +135,7 @@ class FileStore():
 
         filePath = self.fsDir + filename + '.bak'
         os.rename(filePath, self.fsDir + filename)
+        if LOG.INFO: print '[T:%d] "%s" [Commit?]: Done' % (tID, filename)
         if not recover: locks[filename].release()
 
     def doAbort(self, tID, recover=False):
@@ -132,10 +148,12 @@ class FileStore():
 
         filePath = self.fsDir + filename + '.bak'
         os.remove(filePath)
+        if LOG.INFO: print '[T:%d] "%s" [Abort?]: Done' % (tID, filename)
         if not recover: locks[filename].release()
 
     def getDecision(self, tID):
         con = formConnection(coordinator['host'], coordinator['port'])
+        if LOG.INFO: print '[T:%d] [Get-Decision?]: Request' % (tID)
         return con.client.getDecision(int(tID))
 
 
