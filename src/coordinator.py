@@ -34,6 +34,35 @@ class Action:
     DONE = 1
 
 
+def recover():
+    fs = Coordinator()
+    wal = fs._getLog()
+    for tID, request in wal["requests"].items():
+        tID = int(tID)
+        if request["action"] == Action.PENDING:
+            votes = request["votes"]
+            if votes and not len(votes) == len(participants):
+                for pid, location in participants.items():
+                    partCon = formConnection(*location)
+                    votes[pid] = partCon.client.canCommit(tID)
+
+            fs._logVotes(tID, votes)
+
+            if all(votes.values()):
+                fs._logStatus(tID, Status.YES)
+                for pid, location in participants.items():
+                    partCon = formConnection(*location)
+                    partCon.client.doCommit(tID)
+            else:
+                fs._logStatus(tID, Status.NO)
+                for pid, location in participants.items():
+                    if votes[pid] == Status.YES:
+                        partCon = formConnection(*location)
+                        partCon.client.doAbort(tID)
+
+            fs._logAction(tID, Action.DONE)
+
+
 class Coordinator():
     def __init__(self):
         self.coorDir = os.getcwd() + '/coor/'
@@ -100,10 +129,12 @@ class Coordinator():
         for pid, location in participants.items():
             partCon = formConnection(*location)
             votes[pid] = partCon.client.canCommit(tID)
+
         self._logVotes(tID, votes)
 
         if votes and not len(votes) == len(participants):
             return
+
         if all(votes.values()):
             self._logStatus(tID, Status.YES)
             for pid, location in participants.items():
@@ -180,6 +211,8 @@ if __name__ == '__main__':
             for line in f.readlines():
                 pid, ip, port = line.split()
                 participants[pid] = (ip, port)
+
+        recover()
 
         host = socket.gethostname()
         host += '.cs.binghamton.edu' if host.startswith('remote') else ''
