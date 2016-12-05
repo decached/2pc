@@ -32,7 +32,8 @@ myPID = None
 def formConnection(host, port):
     return connection.Connection(CoordinatorRPC, host, port)
 
-CASE = 2
+CASE = int(os.getenv('testCase', 0))
+
 
 class MODE:
     DEBUG = True
@@ -49,13 +50,15 @@ def recover():
     fs = FileStore()
     wal = fs._getLog()
     for tID, request in wal["requests"].items():
+        tID = int(tID)
         if request["action"] == Action.PENDING and request["voted"] == Status.YES:
+            if MODE.INFO: print '[P:%s] [T:%d] [Recovery?]: Initiate' % (myPID, tID)
             if fs.getDecision(tID):
-                if MODE.INFO: print '[T:%d] [Get-Decision?]: Commit' % (tID)
-                fs.doCommit(str(tID), recover=True)
+                if MODE.INFO: print '[P:%s] [T:%d] [Recovery?]: Commit' % (myPID, tID)
+                fs.doCommit(tID, recover=True)
             else:
-                if MODE.INFO: print '[T:%d] [Get-Decision?]: Abort' % (tID)
-                fs.doAbort(str(tID), recover=True)
+                if MODE.INFO: print '[P:%s] [T:%d] [Recovery?]: Abort' % (myPID, tID)
+                fs.doAbort(tID, recover=True)
 
 
 class FileStore():
@@ -94,12 +97,11 @@ class FileStore():
             if voted:
                 return
         if not action:
-            if MODE.INFO: print '[T:%d] "%s" [Write?]: Timeout' % (tID, filename)
+            if MODE.INFO: print '[P:%s] [T:%d] "%s" [Write?]: Timeout' % (myPID, tID, filename)
             self.doAbort(tID)
 
-
     def writeFile(self, tID, rFile):
-        if MODE.INFO: print '[T:%d] "%s" [Write?]: Request' % (tID, rFile.filename)
+        # if MODE.INFO: print '[P:%s] [T:%d] "%s" [Write?]: Request' % (myPID, tID, rFile.filename)
 
         self._logInit(rFile.filename, tID)
         filePath = self.fsDir + rFile.filename + '.bak'
@@ -108,7 +110,7 @@ class FileStore():
                 locks[rFile.filename] = threading.Lock()
 
         if locks[rFile.filename].locked():
-            if MODE.INFO: print '[T:%d] "%s" [Write?]: Abort (previous transaction running)' % (tID, rFile.filename)
+            if MODE.INFO: print '[P:%s] [T:%d] "%s" [Write?]: Abort (previous transaction running)' % (myPID, tID, rFile.filename)
             with wLock:
                 wal = self._getLog()
                 wal["requests"][str(tID)]["status"] = Status.NO
@@ -125,7 +127,7 @@ class FileStore():
             if MODE.TEST and CASE == 2: time.sleep(5)
             wF.write(rFile.content)
 
-        if MODE.INFO: print '[T:%d] "%s" [Write?]: Ready' % (tID, rFile.filename)
+        if MODE.INFO: print '[P:%s] [T:%d] "%s" [Write?]: Ready' % (myPID, tID, rFile.filename)
         threading.Thread(target=self._timeout, args=(tID, rFile.filename, )).start()
 
     def readFile(self, filename):
@@ -140,7 +142,7 @@ class FileStore():
             filename = wal["requests"][str(tID)]["name"]
             status = wal["requests"][str(tID)]["status"]
 
-            if MODE.INFO: print '[T:%d] "%s" [Can-Commit?]: %r' % (tID, filename, bool(status))
+            if MODE.INFO: print '[P:%s] [T:%d] "%s" [Can-Commit?]: %r' % (myPID, tID, filename, bool(status))
             if wal["requests"][str(tID)]["action"] == Action.DONE:
                 return Status.NO
 
@@ -151,7 +153,7 @@ class FileStore():
         return status
 
     def doCommit(self, tID, recover=False):
-        # if myPID == "p2": os._exit(0)
+        if CASE == 6 and myPID == "p2": os._exit(1)
         filename = None
         with wLock:
             wal = self._getLog()
@@ -162,7 +164,7 @@ class FileStore():
         filePath = self.fsDir + filename + '.bak'
         os.rename(filePath, self.fsDir + filename)
         if not recover: locks[filename].release()
-        if MODE.INFO: print '[T:%d] "%s" [Write?]: Commit' % (tID, filename)
+        if MODE.INFO: print '[P:%s] [T:%d] "%s" [Write?]: Commit' % (myPID, tID, filename)
 
     def doAbort(self, tID, recover=False):
         filename = None
@@ -177,11 +179,11 @@ class FileStore():
         filePath = self.fsDir + filename + '.bak'
         os.remove(filePath)
         if not recover: locks[filename].release()
-        if MODE.INFO: print '[T:%d] "%s" [Write?]: Abort' % (tID, filename)
+        if MODE.INFO: print '[P:%s] [T:%d] "%s" [Write?]: Abort' % (myPID, tID, filename)
 
     def getDecision(self, tID):
         con = formConnection(coordinator['host'], coordinator['port'])
-        if MODE.INFO: print '[T:%d] [Get-Decision?]: Request' % (tID)
+        if MODE.INFO: print '[P:%s] [T:%d] [Get-Decision?]: Request' % (myPID, tID)
         return con.client.getDecision(int(tID))
 
 
@@ -196,7 +198,7 @@ class FileStoreHandler():
         self.fs.writeFile(tID, rFile)
 
     def readFile(self, filename):
-        self.fs.readFile(filename)
+        return self.fs.readFile(filename)
 
     def canCommit(self, tID, recover):
         return self.fs.canCommit(tID, recover)

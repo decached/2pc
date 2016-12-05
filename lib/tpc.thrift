@@ -17,14 +17,29 @@ service FileStore {
     void ping(), // Used to check if the server is online.
     oneway void writeFile(1: TransactionID tID, 2: RFile rFile),
     RFile readFile(1: string filename),
-    Status canCommit(1: TransactionID tID),
+    Status canCommit(1: TransactionID tID, 2: bool recover),
     oneway void doCommit(1: TransactionID tID),
     oneway void doAbort(1: TransactionID tID)
 }
 
 service Coordinator {
     void ping(),
-    void writeFile(1: RFile rFile),
+    Status writeFile(1: RFile rFile),
     RFile readFile(1: string filename),
     Status getDecision(1: TransactionID tID),
+}
+
+service TestFileStore {
+    void say(1: string word),
+    void test(1: i32 testCase),
+    void start(1: i32 testCase, 2: i32 pid),
+    void clean(),
+    void kill(),
+}
+
+service TestCoordinator {
+    void say(1: string word),
+    void test(1: i32 testCase),
+    void clean(),
+    void kill(),
 }

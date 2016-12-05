@@ -18,14 +18,15 @@ class FSClientHandler:
         self.con = connection.Connection(Coordinator, host, port)
 
     def readFile(self, filename):
-        self.con.client.readFile(filename)
+        rFile = self.con.client.readFile(filename)
+        print rFile.content
 
     def writeFile(self, filename):
         content = ""
         with open(filename, 'r') as f:
             content = f.read()
             rFile = RFile(filename, content)
-            self.con.client.writeFile(rFile)
+            print self.con.client.writeFile(rFile)
 
 
 def process(args):

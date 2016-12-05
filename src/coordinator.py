@@ -29,7 +29,8 @@ wLock = threading.Lock()
 def formConnection(host, port):
     return connection.Connection(FileStoreRPC, host, port)
 
-CASE = 2
+CASE = int(os.getenv('testCase', 0))
+
 
 class MODE:
     DEBUG = True
@@ -137,9 +138,8 @@ class Coordinator():
             partCon = formConnection(*location)
             partCon.client.writeFile(tID, rFile)
 
-        time.sleep(7)
-
-        # if MODE.TEST and CASE == 2: time.sleep(10)
+        time.sleep(2)
+        # if MODE.TEST and CASE == 2: time.sleep(5)
         if MODE.TEST and CASE == 3: os._exit(0)
 
         votes = {}
@@ -150,10 +150,15 @@ class Coordinator():
         if MODE.TEST and CASE == 4: del votes["p2"]
 
         self._logVotes(tID, votes)
-        if votes and not len(votes) == len(participants):
-            return
 
         if MODE.TEST and (CASE == 4 or CASE == 5): os._exit(0)
+
+        if votes and not len(votes) == len(participants):
+            for pid, location in participants.items():
+                if pid in votes and votes[pid] == Status.YES:
+                    partCon = formConnection(*location)
+                    partCon.client.doAbort(tID)
+            return Status.NO
 
         status = None
         if all(votes.values()):
@@ -185,8 +190,11 @@ class Coordinator():
             wal = self._getLog()
             votes = wal["requests"][str(tID)]["votes"].values()
             status = wal["requests"][str(tID)]["status"]
+            filename = wal["requests"][str(tID)]["name"]
             if votes and not len(votes) == len(participants):
+                if MODE.INFO: print '[T:%d] "%s" [Get-Decision?]: %r' % (tID, filename, bool(Status.NO))
                 return Status.NO
+            if MODE.INFO: print '[T:%d] "%s" [Get-Decision?]: %r' % (tID, filename, bool(status))
             return status
 
 
