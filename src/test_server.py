@@ -25,9 +25,11 @@ class TestFileStoreHandler():
         self.lock = threading.Lock()
 
     def threader(self, testCase, pID):
+        FNULL = open(os.devnull, 'w')
         ps = subprocess.Popen(
             ["./server", "1909" + str(pID), "p" + str(pID)],
-            env={"testCase": str(testCase)}
+            env={"testCase": str(testCase)},
+            stderr=FNULL
         )
         with self.lock:
             self.ps.append(ps)

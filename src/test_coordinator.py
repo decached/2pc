@@ -27,9 +27,12 @@ class TestCoordinatorHandler():
         self.ps = None
 
     def threader(self, testCase):
+        FNULL = open(os.devnull, 'w')
         ps = subprocess.Popen(
             ["./coordinator", "49090", coorFile],
-            env={"testCase": str(testCase)}
+            env={"testCase": str(testCase)},
+            stderr=FNULL
+
         )
         self.ps = ps
 

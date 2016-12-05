@@ -23,6 +23,7 @@ def process(args):
     # Test Case 1
     testCase = 1
     print '[Test:%d] Set Up' % (testCase)
+    time.sleep(5)
     cTest.client.say('Case: ' + str(testCase))
     pTest.client.say('Case: ' + str(testCase))
 
