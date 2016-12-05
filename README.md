@@ -18,6 +18,8 @@ BNumber     : B00671052
 
 `$ ./test_client test-coordinator.com 8081 test-server.com 8082 <INPUT_FILE>`
 
+Press 'Enter' as soon as you see the prompt `>`
+
 COODINATOR_FILE should have the following structure
 
 p1 host port
@@ -33,6 +35,7 @@ server/coordinator/client are run manually.
 #### Note
 P = Participant(s)
 C = Coordinator
+host = "localhost" for test programs
 
 #### Structure Code
 
