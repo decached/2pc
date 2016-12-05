@@ -54,13 +54,13 @@ def process(args):
         stderr=FNULL
     )
 
-    time.sleep(2)
+    time.sleep(3)
     raw_input('> ')
     print '[Test:%d] Tear Down' % (testCase)
     cTest.client.clean()
     pTest.client.clean()
 
-    time.sleep(2)
+    time.sleep(3)
     raw_input('> ')
     # Test Case 2
     testCase = 2
@@ -91,7 +91,7 @@ def process(args):
     cTest.client.clean()
     pTest.client.clean()
 
-    time.sleep(2)
+    time.sleep(3)
     # Test Case 3.1
     raw_input('> ')
     testCase = 3
@@ -110,7 +110,7 @@ def process(args):
         stderr=FNULL
     )
 
-    time.sleep(2)
+    time.sleep(3)
     raw_input('> ')
     print '[Test:%d.1] Coordinator Recovery' % (testCase)
     cTest.client.test(testCase)
@@ -120,7 +120,7 @@ def process(args):
     cTest.client.clean()
     pTest.client.clean()
 
-    time.sleep(2)
+    time.sleep(3)
     # Test Case 3.2
     raw_input('> ')
     testCase = 3
@@ -150,7 +150,7 @@ def process(args):
     pTest.client.clean()
 
 
-    time.sleep(2)
+    time.sleep(3)
     raw_input('> ')
     testCase = 4
     print '[Test:%d.1] Set Up' % (testCase)
@@ -168,7 +168,7 @@ def process(args):
         stderr=FNULL
     )
 
-    time.sleep(2)
+    time.sleep(3)
     raw_input('> ')
     print '[Test:%d.1] Coordinator Recovery' % (testCase)
     cTest.client.test(testCase)
@@ -178,7 +178,7 @@ def process(args):
     cTest.client.clean()
     pTest.client.clean()
 
-    time.sleep(2)
+    time.sleep(3)
     raw_input('> ')
     testCase = 5
     tCase = 4
@@ -207,7 +207,7 @@ def process(args):
     cTest.client.clean()
     pTest.client.clean()
 
-    time.sleep(2)
+    time.sleep(3)
     raw_input('> ')
     testCase = 6
     tCase = 5
@@ -232,8 +232,6 @@ def process(args):
 
     raw_input('> ')
     print '[Test:%d] Tear Down' % (tCase)
-    cTest.client.clean()
-    pTest.client.clean()
 
 
 if __name__ == '__main__':
