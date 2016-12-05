@@ -15,8 +15,7 @@ import connection
 
 
 def process(args):
-    # for testCase in xrange(1, tests+1):
-    pTest = connection.Connection(TestFileStore, 'localhost', '8082')
+    pTest = connection.Connection(TestFileStore, args.phost, args.pport)
     cTest = connection.Connection(TestCoordinator, args.chost, args.cport)
 
     FNULL = open(os.devnull, 'w')
@@ -34,7 +33,7 @@ def process(args):
     print '[Test:%d] Execute' % (testCase)
 
     subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
+        ["./client", args.chost, "49090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
@@ -50,7 +49,7 @@ def process(args):
 
     raw_input('> ')
     subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "read", "--filename", args.filename],
+        ["./client", args.chost, "49090", "--operation", "read", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
@@ -61,6 +60,7 @@ def process(args):
     cTest.client.clean()
     pTest.client.clean()
 
+    raw_input('> ')
     # Test Case 2
     testCase = 2
     print '[Test:%d] Set Up' % (testCase)
@@ -74,12 +74,12 @@ def process(args):
     print '[Test:%d] Execute' % (testCase)
 
     subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
+        ["./client", args.chost, "49090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
     subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
+        ["./client", args.chost, "49090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
@@ -103,7 +103,7 @@ def process(args):
     raw_input('> ')
     print '[Test:%d.1] Execute' % (testCase)
     subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
+        ["./client", args.chost, "49090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
@@ -131,7 +131,7 @@ def process(args):
     raw_input('> ')
     print '[Test:%d.2] Execute' % (testCase)
     subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
+        ["./client", args.chost, "49090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
@@ -159,7 +159,7 @@ def process(args):
     raw_input('> ')
     print '[Test:%d.1] Execute' % (testCase)
     subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
+        ["./client", args.chost, "49090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
@@ -187,7 +187,7 @@ def process(args):
     raw_input('> ')
     print '[Test:%d.2] Execute' % (tCase)
     subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
+        ["./client", args.chost, "49090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
@@ -214,7 +214,7 @@ def process(args):
     raw_input('> ')
     print '[Test:%d] Execute' % (tCase)
     subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
+        ["./client", args.chost, "49090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )

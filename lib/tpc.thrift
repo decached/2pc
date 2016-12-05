@@ -1,5 +1,5 @@
-typedef i32 TransactionID;
-typedef string ParticipantID;
+typedef i32 TransactionID
+typedef string ParticipantID
 
 struct RFile {
     1: required string filename;

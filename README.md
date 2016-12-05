@@ -12,11 +12,20 @@ BNumber     : B00671052
 
 ## Execution
 
-`$ ./test_coordinator 8081  # Run on Coordinator machine`
+`$ ./test_coordinator 8081 <COODINATOR_FILE>  # Run on Coordinator machine`
 
 `$ ./test_server 8082  # Run on Server machine`
 
-`$ ./test_client test-coordinator.com 8081 test-server.com 8082 InputFile`
+`$ ./test_client test-coordinator.com 8081 test-server.com 8082 <INPUT_FILE>`
+
+COODINATOR_FILE should have the following structure
+
+p1 host port
+p2 host port
+
+Where p1/p2 are participant names. 
+Always remain the same in the test_program, but can be configured if the
+server/coordinator/client are run manually.
 
 
 ## Report

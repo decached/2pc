@@ -19,6 +19,7 @@ from thrift.transport import TSocket, TTransport
 from tpc import TestCoordinator
 
 coorFile = None
+port = None
 
 
 class TestCoordinatorHandler():
@@ -27,7 +28,7 @@ class TestCoordinatorHandler():
 
     def threader(self, testCase):
         ps = subprocess.Popen(
-            ["./coordinator", "9090", coorFile],
+            ["./coordinator", "49090", coorFile],
             env={"testCase": str(testCase)}
         )
         self.ps = ps
@@ -51,6 +52,7 @@ if __name__ == '__main__':
         parser.add_argument(dest='filename', help='Input File')
         args = parser.parse_args()
 
+        port = args.port
         coorFile = args.filename
 
         handler = TestCoordinatorHandler()

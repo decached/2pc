@@ -26,9 +26,9 @@ class TestFileStoreHandler():
 
     def threader(self, testCase, pID):
         ps = subprocess.Popen(
-                ["./server", "909" + str(pID), "p" + str(pID)],
-                env={"testCase": str(testCase)}
-            )
+            ["./server", "1909" + str(pID), "p" + str(pID)],
+            env={"testCase": str(testCase)}
+        )
         with self.lock:
             self.ps.append(ps)
 
