@@ -33,8 +33,8 @@ def process(args):
     raw_input('> ')
     print '[Test:%d] Execute' % (testCase)
 
-    ps = subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", "Makefile"],
+    subprocess.Popen(
+        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
@@ -49,8 +49,8 @@ def process(args):
     pTest.client.test(testCase)
 
     raw_input('> ')
-    ps = subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "read", "--filename", "Makefile"],
+    subprocess.Popen(
+        ["./client", "localhost", "9090", "--operation", "read", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
@@ -73,13 +73,13 @@ def process(args):
     raw_input('> ')
     print '[Test:%d] Execute' % (testCase)
 
-    ps1 = subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", "Makefile"],
+    subprocess.Popen(
+        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
-    ps2 = subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", "Makefile"],
+    subprocess.Popen(
+        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
@@ -102,8 +102,8 @@ def process(args):
 
     raw_input('> ')
     print '[Test:%d.1] Execute' % (testCase)
-    ps1 = subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", "Makefile"],
+    subprocess.Popen(
+        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
@@ -130,8 +130,8 @@ def process(args):
 
     raw_input('> ')
     print '[Test:%d.2] Execute' % (testCase)
-    ps1 = subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", "Makefile"],
+    subprocess.Popen(
+        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
@@ -158,8 +158,8 @@ def process(args):
 
     raw_input('> ')
     print '[Test:%d.1] Execute' % (testCase)
-    ps1 = subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", "Makefile"],
+    subprocess.Popen(
+        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
@@ -186,8 +186,8 @@ def process(args):
 
     raw_input('> ')
     print '[Test:%d.2] Execute' % (tCase)
-    ps1 = subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", "Makefile"],
+    subprocess.Popen(
+        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
@@ -213,8 +213,8 @@ def process(args):
 
     raw_input('> ')
     print '[Test:%d] Execute' % (tCase)
-    ps1 = subprocess.Popen(
-        ["./client", "localhost", "9090", "--operation", "write", "--filename", "Makefile"],
+    subprocess.Popen(
+        ["./client", "localhost", "9090", "--operation", "write", "--filename", args.filename],
         env={"testCase": str(testCase)},
         stderr=FNULL
     )
@@ -236,4 +236,5 @@ if __name__ == '__main__':
     parser.add_argument(dest='cport', help='Port')
     parser.add_argument(dest='phost', help='Host')
     parser.add_argument(dest='pport', help='Port')
+    parser.add_argument(dest='filename', help='Test Input File')
     process(parser.parse_args())
