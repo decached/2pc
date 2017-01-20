@@ -25,7 +25,7 @@ locks = {}
 mLock = threading.Lock()
 wLock = threading.Lock()
 
-coordinator = {"host": "localhost", "port": "9090"}
+coordinator = {"host": "localhost", "port": "49090"}
 myPID = None
 
 
